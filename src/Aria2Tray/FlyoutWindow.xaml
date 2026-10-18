@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Aria2Tray.FlyoutWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Aria2 Tray">
+    <!-- 背景透明但要有：没有背景的 Grid 收不到拖进来的种子文件。 -->
+    <Grid x:Name="Root" Background="Transparent" AllowDrop="True">
+        <Grid.Resources>
+            <!-- 面板字体：Segoe UI Variable，中文回退微软雅黑。Grid 没有字体属性，用隐式样式给文字、按钮和文本框。 -->
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Microsoft YaHei UI" />
+            </Style>
+            <Style TargetType="Button" BasedOn="{StaticResource MacButtonStyle}">
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Microsoft YaHei UI" />
+            </Style>
+            <Style TargetType="TextBox" BasedOn="{StaticResource DefaultTextBoxStyle}">
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Microsoft YaHei UI" />
+            </Style>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 顶栏由代码画：主界面是全局速度和新建、全部暂停；二级页是返回和标题。 -->
+        <Grid x:Name="Header" Padding="12,10,8,6" MinHeight="48" />
+
+        <!-- 横幅卡片：断线、命令失败、要用户去做的事。由代码画（Kit.Banner）。 -->
+        <Border x:Name="Banner" Grid.Row="1" Margin="12,0,12,8" Visibility="Collapsed" />
+
+        <!--
+          滚动条照 WinUI 的默认样子：盖在内容上（不占宽度），鼠标在面板里动、滚动时显示细条，悬停时变粗可以拖，停下后淡出，和 macOS 一样。
+          内容右边留了 12 的边距，细条和变粗后的滚动条都落在这段边距里。
+        -->
+        <ScrollViewer x:Name="Scroller" Grid.Row="2" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+            <StackPanel x:Name="Body" Padding="12,2,12,14" />
+        </ScrollViewer>
+
+        <StackPanel x:Name="Placeholder" Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="300" Spacing="16">
+            <ProgressRing x:Name="Loading" Width="28" Height="28" IsActive="False" />
+            <TextBlock x:Name="PlaceholderText" TextWrapping="Wrap" TextAlignment="Center" />
+            <Button x:Name="PlaceholderButton" HorizontalAlignment="Center" Click="PlaceholderButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>
