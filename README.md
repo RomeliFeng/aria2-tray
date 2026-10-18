@@ -12,7 +12,7 @@ Aria2 Tray does not run aria2 itself. It connects to the aria2 JSON-RPC interfac
 |---|---|
 | Tray icon | Shows a progress ring with the combined progress of all active downloads. The tooltip shows the download and upload speed. |
 | Speed chart | Download and upload speed of the last 60 seconds. |
-| Downloads | Grouped into downloading, waiting, seeding and finished. Each group can be collapsed and is split into pages of 10. Each download shows its progress, size, speed and remaining time. Long names are shortened in the middle; hovering shows the thumbnail and the full name. |
+| Downloads | Tabs for active, waiting, seeding and finished downloads; the last tab is remembered. Pages with a configurable number of downloads. Each download shows its progress, size, speed and remaining time. Long names are shortened in the middle; hovering shows the thumbnail and the full name. |
 | Thumbnails | Thumbnails of downloaded files, provided by Windows, in the hover tooltip and on the details page. Requires File location in Settings. |
 | Context menu | Details, pause or resume, move to the top or bottom of the queue, open the file, show it in File Explorer, copy the name, link or location, remove. |
 | Sorting | Default order, name, size, progress or speed, ascending or descending. |

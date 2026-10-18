@@ -52,6 +52,8 @@ internal sealed partial class SettingsWindow : Window
         WidthBox.Value = settings.Width;
         HeightBox.Header = L.T("面板高度", "Panel height");
         HeightBox.Value = settings.Height;
+        PageSizeBox.Header = L.T("每页个数", "Downloads per page");
+        PageSizeBox.Value = Math.Clamp(settings.PageSize, 5, 100);
         NotifySwitch.Header = L.T("下载完成、出错时通知", "Notify when a download finishes or fails");
         NotifySwitch.IsOn = settings.Notify;
         StartupSwitch.Header = L.T("开机时启动", "Start with Windows");
@@ -66,7 +68,7 @@ internal sealed partial class SettingsWindow : Window
         var info = new MONITORINFO { cbSize = (uint)Marshal.SizeOf<MONITORINFO>() };
         GetMonitorInfo(monitor, ref info);
         var scale = dpi / 96.0;
-        var size = new SizeInt32((int)(500 * scale), (int)(720 * scale));
+        var size = new SizeInt32((int)(500 * scale), (int)(780 * scale));
         var work = info.rcWork;
         AppWindow.MoveAndResize(new RectInt32(
             work.Left + ((work.Right - work.Left - size.Width) / 2),
@@ -116,6 +118,7 @@ internal sealed partial class SettingsWindow : Window
         _settings.Language = Languages[Math.Max(0, LanguageBox.SelectedIndex)];
         _settings.Width = double.IsNaN(WidthBox.Value) ? 380 : (int)WidthBox.Value;
         _settings.Height = double.IsNaN(HeightBox.Value) ? 560 : (int)HeightBox.Value;
+        _settings.PageSize = double.IsNaN(PageSizeBox.Value) ? 10 : Math.Clamp((int)PageSizeBox.Value, 5, 100);
         _settings.Notify = NotifySwitch.IsOn;
         _settings.Save();
         try

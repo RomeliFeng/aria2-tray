@@ -25,6 +25,7 @@ internal sealed class Palette
         Text3 = B(dark ? 0x52FFFFFF : 0x4D000000);
         Track = B(dark ? 0x1FFFFFFF : 0x14000000);
         Idle = B(dark ? 0x66FFFFFF : 0x59000000);
+        SegmentSelected = B(dark ? 0x42FFFFFF : 0xFFFFFFFF);
         OnAccent = B(0xFFFFFFFF);
         Success = B(dark ? 0xFF30D158 : 0xFF248A3D);
         Error = B(dark ? 0xFFFF453A : 0xFFD70015);
@@ -60,6 +61,9 @@ internal sealed class Palette
 
     /// <summary>暂停、等待中的进度条。</summary>
     public Brush Idle { get; }
+
+    /// <summary>标签（分段控件）里选中的那段。</summary>
+    public Brush SegmentSelected { get; }
 
     public Color AccentColor { get; }
 

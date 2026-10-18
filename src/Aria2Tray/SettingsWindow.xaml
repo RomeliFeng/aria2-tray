@@ -26,6 +26,7 @@
                     <NumberBox x:Name="WidthBox" Minimum="300" Maximum="1200" SmallChange="20" SpinButtonPlacementMode="Inline" MinWidth="150" />
                     <NumberBox x:Name="HeightBox" Minimum="300" Maximum="1600" SmallChange="20" SpinButtonPlacementMode="Inline" MinWidth="150" />
                 </StackPanel>
+                <NumberBox x:Name="PageSizeBox" Minimum="5" Maximum="100" SmallChange="5" SpinButtonPlacementMode="Inline" HorizontalAlignment="Left" MinWidth="150" />
                 <ToggleSwitch x:Name="NotifySwitch" />
                 <ToggleSwitch x:Name="StartupSwitch" />
             </StackPanel>

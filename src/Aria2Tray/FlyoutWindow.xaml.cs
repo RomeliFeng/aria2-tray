@@ -48,7 +48,7 @@ internal sealed partial class FlyoutWindow : Window, IPanelActions
     {
         InitializeComponent();
         _settings = settings;
-        _view = new PanelView(this) { SortBy = settings.SortBy, SortDescending = settings.SortDescending };
+        _view = new PanelView(this) { SortBy = settings.SortBy, SortDescending = settings.SortDescending, Tab = settings.Tab, PageSize = Math.Clamp(settings.PageSize, 5, 100) };
         _hwnd = WindowNative.GetWindowHandle(this);
 
         SystemBackdrop = new DesktopAcrylicBackdrop();
@@ -209,6 +209,7 @@ internal sealed partial class FlyoutWindow : Window, IPanelActions
     /// <summary>设置改了：尺寸重新算，语言可能变了要重画。</summary>
     public void ApplySettings()
     {
+        _view.PageSize = Math.Clamp(_settings.PageSize, 5, 100);
         if (AppWindow.IsVisible)
         {
             Reposition();
@@ -252,6 +253,12 @@ internal sealed partial class FlyoutWindow : Window, IPanelActions
     }
 
     public void Rerender() => Render();
+
+    public void TabChanged(string tab)
+    {
+        _settings.Tab = tab;
+        _settings.Save();
+    }
 
     public void OpenAdd()
     {
@@ -961,9 +968,9 @@ internal sealed partial class FlyoutWindow : Window, IPanelActions
                     Render();
                     break;
 
-                // 收起 / 展开分开两个命令，不做切换（命令文件写一次常常触发两次）。
-                case "fold" or "unfold" when arg.Length > 0:
-                    _view.SetCollapsed(arg, verb == "fold");
+                // 只在这次运行里换标签，不存设置。
+                case "tab" when arg is "downloading" or "waiting" or "seeding" or "stopped":
+                    _view.Tab = arg;
                     Render();
                     break;
 

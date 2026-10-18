@@ -53,33 +53,38 @@ internal sealed class Kit(Palette p)
     }
 
     /// <summary>
-    /// 能收起的分组标题：标题部分整块可点，左边箭头（收起朝右、展开朝下）；右边可以放一个小按钮（「清除」），点它不收起。
-    /// 返回的标题文字用来原地更新（「做种中」的上传速度）。
+    /// 标签（macOS 的分段控件）：灰色底槽，各段等宽；选中的那段是凸起的浅色块、字半粗。每段是名字加个数，个数用次要色。
     /// </summary>
-    public (Grid Header, TextBlock Title) CollapsibleSection(string text, bool expanded, Action toggle, UIElement? right = null)
+    public Border Tabs(IReadOnlyList<(string Key, string Name, int Count)> tabs, string selected, Action<string> picked)
     {
-        var g = new Grid { Margin = new Thickness(6, 14, 2, 6), MinHeight = 18, ColumnSpacing = 8 };
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        g.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        row.Children.Add(Icons.Icon(expanded ? Icons.ChevronDown : Icons.Forward, 9, p.Text2));
-        var t = Text(text, 11, p.Text2, strong: true);
-        row.Children.Add(t);
-        var b = new Button
+        var grid = new Grid { ColumnSpacing = 2 };
+        for (var i = 0; i < tabs.Count; i++)
         {
-            Style = (Style)Application.Current.Resources["MacTextButtonStyle"],
-            Content = row,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        };
-        b.Click += (_, _) => toggle();
-        g.Children.Add(b);
-        if (right is FrameworkElement r)
-        {
-            Grid.SetColumn(r, 1);
-            g.Children.Add(r);
+            var (key, name, count) = tabs[i];
+            var on = key == selected;
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, HorizontalAlignment = HorizontalAlignment.Center };
+            var nameText = Text(name, 12, p.Text1, strong: on);
+            content.Children.Add(nameText);
+            content.Children.Add(Text(count.ToString(L.Culture), 11, p.Text2));
+            var b = new Button
+            {
+                Style = ButtonStyle,
+                Height = 28,
+                Padding = new Thickness(4, 0, 4, 0),
+                CornerRadius = new CornerRadius(7),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Background = on ? p.SegmentSelected : null,
+                Foreground = p.Text1,
+                Content = content,
+                Tag = key,
+            };
+            b.Click += (_, _) => picked(key);
+            Grid.SetColumn(b, i);
+            grid.Children.Add(b);
         }
 
-        return (g, t);
+        return new Border { Background = p.Control, CornerRadius = new CornerRadius(9), Padding = new Thickness(2), Child = grid };
     }
 
     /// <summary>分页：居中的「‹  2 / 5  ›」，到头的那边按钮不可用。参数是 −1 或 +1。</summary>

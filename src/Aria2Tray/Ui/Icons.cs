@@ -18,9 +18,7 @@ internal static class Icons
     public const string Top = "";
     public const string Bottom = "";
     public const string Back = "";
-    public const string Forward = "";
-    public const string ChevronDown = "";
-    public const string Down = "";
+    public const string Forward = "";    public const string Down = "";
     public const string Up = "";
     public const string File = "";
     public const string Folder = "";

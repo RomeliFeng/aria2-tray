@@ -30,8 +30,11 @@ internal interface IPanelActions
 
     void OpenAdd();
 
-    /// <summary>翻页、展开收起之后重画这一页（保持滚动位置）。</summary>
+    /// <summary>翻页、换标签之后重画这一页（保持滚动位置）。</summary>
     void Rerender();
+
+    /// <summary>换了标签：存进设置，下次打开面板还是它。</summary>
+    void TabChanged(string tab);
 
     /// <summary>等待中的任务挪到队首 / 队尾。</summary>
     void Move(Download d, bool top);
@@ -88,23 +91,23 @@ internal sealed partial class PanelView(IPanelActions actions)
 
     // ---------------- 主界面 ----------------
 
-    /// <summary>每组一页最多几张卡片，多了分页（2026-10-18 用户要求：真实数据里做种和已完成各有几十个；先定 5 个，用户嫌少，改成 10 个）。</summary>
-    public const int PageSize = 10;
+    /// <summary>
+    /// 每组一页最多几张卡片，多了分页。在设置里改（Settings.PageSize），默认 10
+    /// （2026-10-18 用户要求：真实数据里做种和已完成各有几十个；先定 5 个嫌少，改成 10，之后要能自己改）。
+    /// </summary>
+    public int PageSize { get; set; } = 10;
 
     private readonly Dictionary<string, int> _pages = [];
+    private TextBlock? _subtitle;
 
     /// <summary>
-    /// 每组收起了没有。每组的标题都能点着收起 / 展开（2026-10-18 用户发现只有「做种中」能收，点「已完成」没反应）；
-    /// 默认只有「做种中」收着。程序运行期间记着。
+    /// 当前的标签：downloading、waiting、seeding、stopped。分组用标签页，一次只看一组（2026-10-18 用户觉得竖着排四组不合适）。
+    /// 记在设置里，下次打开面板还是它。
     /// </summary>
-    private readonly Dictionary<string, bool> _collapsed = new() { ["seeding"] = true };
-    private TextBlock? _seedingTitle;
+    public string Tab { get; set; } = "downloading";
 
     /// <summary>调试通道用：某一组翻到第几页（从 1 起）。</summary>
     public void SetPage(string group, int page) => _pages[group] = page - 1;
-
-    /// <summary>调试通道用：收起 / 展开某一组。</summary>
-    public void SetCollapsed(string group, bool collapsed) => _collapsed[group] = collapsed;
 
     private sealed record TaskGroup(string Key, string Title, IReadOnlyList<Download> Items);
 
@@ -155,7 +158,7 @@ internal sealed partial class PanelView(IPanelActions actions)
         return [.. ordered.ThenBy(x => x.i).Select(x => x.d)];
     }
 
-    private static int PageCount(TaskGroup g) => Math.Max(1, (g.Items.Count + PageSize - 1) / PageSize);
+    private int PageCount(TaskGroup g) => Math.Max(1, (g.Items.Count + PageSize - 1) / PageSize);
 
     /// <summary>这一组当前在第几页（从 0 起）；任务变少、页数变少时退到最后一页。</summary>
     private int PageOf(TaskGroup g)
@@ -165,13 +168,41 @@ internal sealed partial class PanelView(IPanelActions actions)
         return p;
     }
 
-    private bool Collapsed(TaskGroup g) => _collapsed.GetValueOrDefault(g.Key);
+    private List<Download> Visible(TaskGroup g) => [.. g.Items.Skip(PageOf(g) * PageSize).Take(PageSize)];
 
-    private List<Download> Visible(TaskGroup g) => Collapsed(g) ? [] : [.. g.Items.Skip(PageOf(g) * PageSize).Take(PageSize)];
+    private TaskGroup Current(List<TaskGroup> groups) => groups.FirstOrDefault(g => g.Key == Tab) ?? groups[0];
 
-    /// <summary>画出来的组成：每组的个数、页码、展开没有、有哪几个组操作、这一页有哪些任务。没变就原地更新。</summary>
-    private string MainKey(List<TaskGroup> groups) => string.Join("#", groups.Select(g =>
-        $"{g.Key}:{g.Items.Count}:{PageOf(g)}:{Collapsed(g)}:{string.Join(",", GroupOps(g))}:" + string.Join("|", Visible(g).Select(d => d.Gid))));
+    /// <summary>画出来的组成：每个标签上的个数；当前标签、它的页码、组操作、这一页有哪些任务。没变就原地更新。</summary>
+    private string MainKey(List<TaskGroup> groups)
+    {
+        var g = Current(groups);
+        return string.Join(",", groups.Select(x => x.Items.Count)) + $"#{g.Key}:{PageOf(g)}:{string.Join(",", GroupOps(g))}:" + string.Join("|", Visible(g).Select(d => d.Gid));
+    }
+
+    /// <summary>
+    /// 标签下面左边那行小字：下载中写总下载速度、做种中写总上传速度（每秒原地更新）；分了页时写「第 11–20 个，共 32 个」。都没有就空着。
+    /// </summary>
+    private string Subtitle(TaskGroup g)
+    {
+        var parts = new List<string>();
+        if (g.Key == "downloading" && g.Items.Count > 0)
+        {
+            parts.Add("↓ " + Format.Speed(g.Items.Sum(d => d.DownloadSpeed)));
+        }
+        else if (g.Key == "seeding" && g.Items.Count > 0)
+        {
+            parts.Add("↑ " + Format.Speed(g.Items.Sum(d => d.UploadSpeed)));
+        }
+
+        if (PageCount(g) > 1)
+        {
+            var from = (PageOf(g) * PageSize) + 1;
+            var to = Math.Min(g.Items.Count, from + PageSize - 1);
+            parts.Add(L.T($"第 {from}–{to} 个，共 {g.Items.Count} 个", $"{from}–{to} of {g.Items.Count}"));
+        }
+
+        return string.Join(" · ", parts);
+    }
 
     /// <summary>
     /// 组标题右边的整组操作（2026-10-18 用户要求），按这一组里有什么状态的任务决定出哪几个：
@@ -228,11 +259,6 @@ internal sealed partial class PanelView(IPanelActions actions)
         return s;
     }
 
-    /// <summary>组标题：名字和个数；「做种中」另写这一组的总上传速度（每秒原地更新）。</summary>
-    private static string Title(TaskGroup g) => g.Key == "seeding"
-        ? $"{g.Title} · {g.Items.Count} · ↑ {Format.Speed(g.Items.Sum(d => d.UploadSpeed))}"
-        : $"{g.Title} · {g.Items.Count}";
-
     /// <summary>组成和顺序没变：原地更新，返回 true；变了返回 false，由调用方重建。</summary>
     public bool TryUpdateMain(Snapshot s, SpeedHistory history)
     {
@@ -251,9 +277,9 @@ internal sealed partial class PanelView(IPanelActions actions)
             }
         }
 
-        if (_seedingTitle is not null)
+        if (_subtitle is not null)
         {
-            _seedingTitle.Text = Title(groups.First(g => g.Key == "seeding"));
+            _subtitle.Text = Subtitle(Current(groups));
         }
 
         Debug = MainDebug(s);
@@ -263,7 +289,7 @@ internal sealed partial class PanelView(IPanelActions actions)
     public void BuildMain(Panel body, Snapshot s, SpeedHistory history)
     {
         Reset();
-        _seedingTitle = null;
+        _subtitle = null;
 
         // 整页重建：按最新的值重排一次，记下名次，之后每秒原地更新都照这个顺序。
         _resort = true;
@@ -289,65 +315,90 @@ internal sealed partial class PanelView(IPanelActions actions)
             return;
         }
 
-        foreach (var g in groups.Where(g => g.Items.Count > 0))
+        // 标签：四组各一段，带个数；个数是 0 的也照样列（标签不跟着任务变来变去）。
+        var current = Current(groups);
+        var tabs = K.Tabs(
+            [.. groups.Select(g => (g.Key, TabName(g.Key), g.Items.Count))],
+            current.Key,
+            key =>
+            {
+                Tab = key;
+                actions.TabChanged(key);
+                actions.Rerender();
+            });
+        tabs.Margin = new Thickness(0, 12, 0, 0);
+        body.Children.Add(tabs);
+
+        // 标签下面一行：左边小计（速度、第几个），右边这一组的组操作。
+        var bar = new Grid { Margin = new Thickness(6, 8, 2, 8), MinHeight = 22, ColumnSpacing = 8 };
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        bar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _subtitle = K.Text(Subtitle(current), 11, K.P.Text2);
+        bar.Children.Add(_subtitle);
+        if (current.Items.Count > 0)
         {
-            var key = g.Key;
-            var (header, title) = K.CollapsibleSection(
-                Title(g),
-                !Collapsed(g),
-                () =>
-                {
-                    _collapsed[key] = !_collapsed.GetValueOrDefault(key);
-                    actions.Rerender();
-                },
-                GroupButtons(g));
-            if (key == "seeding")
-            {
-                _seedingTitle = title;
-            }
+            var ops = GroupButtons(current);
+            Grid.SetColumn(ops, 1);
+            bar.Children.Add(ops);
+        }
 
-            body.Children.Add(header);
+        body.Children.Add(bar);
 
-            if (Collapsed(g))
-            {
-                continue;
-            }
+        if (current.Items.Count == 0)
+        {
+            var none = K.Text(L.T("没有任务", "Nothing here"), 13, K.P.Text2);
+            none.HorizontalAlignment = HorizontalAlignment.Center;
+            none.Margin = new Thickness(0, 32, 0, 0);
+            body.Children.Add(none);
+            Debug = MainDebug(s);
+            return;
+        }
 
-            var stack = new StackPanel { Spacing = 8 };
-            foreach (var d in Visible(g))
-            {
-                var card = new TaskCard(K, d, actions.OpenDetail, actions.PauseOrResume, actions.Remove, TaskMenu, actions.ThumbnailAsync);
-                _cards[d.Gid] = card;
-                stack.Children.Add(card);
-            }
+        var stack = new StackPanel { Spacing = 8 };
+        foreach (var d in Visible(current))
+        {
+            var card = new TaskCard(K, d, actions.OpenDetail, actions.PauseOrResume, actions.Remove, TaskMenu, actions.ThumbnailAsync);
+            _cards[d.Gid] = card;
+            stack.Children.Add(card);
+        }
 
-            body.Children.Add(stack);
-            var pages = PageCount(g);
-            if (pages > 1)
+        body.Children.Add(stack);
+        var pages = PageCount(current);
+        if (pages > 1)
+        {
+            var page = PageOf(current);
+            var key = current.Key;
+            body.Children.Add(K.Pager(page, pages, delta =>
             {
-                var page = PageOf(g);
-                body.Children.Add(K.Pager(page, pages, delta =>
-                {
-                    _pages[key] = page + delta;
-                    actions.Rerender();
-                }));
-            }
+                _pages[key] = page + delta;
+                actions.Rerender();
+            }));
         }
 
         Debug = MainDebug(s);
     }
 
+    /// <summary>标签上的名字，要短：面板宽 380 时一段只有 85 左右，英文的「Downloading 12」放不下。</summary>
+    private static string TabName(string key) => key switch
+    {
+        "downloading" => L.T("下载中", "Active"),
+        "waiting" => L.T("等待中", "Waiting"),
+        "seeding" => L.T("做种中", "Seeding"),
+        _ => L.T("已完成", "Done"),
+    };
+
     private object MainDebug(Snapshot s) => new
     {
         page = "main",
         sort = SortBy + (SortDescending ? " desc" : " asc"),
+        tab = Tab,
+        subtitle = _subtitle?.Text,
         groups = Groups(s).Select(g => new
         {
             group = g.Key,
             count = g.Items.Count,
             page = $"{PageOf(g) + 1}/{PageCount(g)}",
-            collapsed = Collapsed(g),
-            items = Visible(g).Select(d => new { d.Gid, name = Describe.Name(d), left = Describe.Lines(d).Left, right = Describe.Lines(d).Right, bar = Describe.BarFraction(d) }),
+            items = (g.Key == Tab ? Visible(g) : []).Select(d => new { d.Gid, name = Describe.Name(d), left = Describe.Lines(d).Left, right = Describe.Lines(d).Right, bar = Describe.BarFraction(d) }),
         }),
     };
 

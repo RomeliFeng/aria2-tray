@@ -51,6 +51,12 @@ internal sealed class Settings
         return to + path[from.Length..].Replace('/', '\\');
     }
 
+    /// <summary>每页几个任务（5 到 100）。</summary>
+    public int PageSize { get; set; } = 10;
+
+    /// <summary>主界面上次停在哪个标签：downloading、waiting、seeding、stopped。</summary>
+    public string Tab { get; set; } = "downloading";
+
     /// <summary>任务排序："default"（aria2 给的顺序）/ "name" / "size" / "progress" / "speed"。</summary>
     public string SortBy { get; set; } = "default";
 
